@@ -1,21 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Head from 'next/head'
+import Router from 'next/router';
 import styles from '../styles/Home.module.css';
 
 
-export default function PageLanding () {
-    const [news, setNews] = useState([]);
-    const [searchTerm, setSearch] = useState('');
+function News ({ newsList }) {
+    const [news, setNews] = useState(newsList.hits);
     const [loading, setLoading] = useState(false);
-    useEffect(() => {
-      const getNews = async (term) => {
-        setLoading(true);
-        const fetchedNews = await (await fetch(`https://hn.algolia.com/api/v1/search?query=${term}`)).json();
-        setNews(fetchedNews.hits);
-        setLoading(false);
-    }
-    getNews(searchTerm);  
-    }, [setLoading, setNews, searchTerm]);
+    
+    const getNews = async (term) => {
+      setLoading(true);
+      const fetchedNews = await (await fetch(`https://hn.algolia.com/api/v1/search?query=${term}`)).json();
+      setNews(fetchedNews.hits);
+      setLoading(false);
+  }
 
     const newCard = (data) => {
         return (
@@ -52,9 +50,11 @@ export default function PageLanding () {
                 padding: '50px 0'
             } }
           >
-            <form onSubmit={ (ev) => {
+            <form onSubmit={ async (ev) => {
                 ev.preventDefault();
-                setSearch(ev.target.query.value);
+                const { query } = ev.target;
+                Router.push(`/news/?searchTerm=${query.value}`);
+                await getNews(query.value);
             } }>
                 <input
                   type="text"
@@ -69,9 +69,26 @@ export default function PageLanding () {
                   />
             </form>
             <div className={ styles.grid }>
-            { !loading ? news.map((data) => newCard(data)) : 'Please wait' }  
+            { !loading && news ? news.map((data) => newCard(data)) : 'Please wait' }  
             </div>
           </main>
         </>
     )
 }
+
+
+News.getInitialProps = async ({ query }) => {
+    let newsList = [];
+    try {
+        const res = await fetch(`https://hn.algolia.com/api/v1/search?query=${query.searchTerm}`);
+        newsList = await res.json();
+    } catch (error) {
+        console.error(`ERROR: ${error.message}`);
+        newsList = [];
+    }
+    return {
+        newsList,
+    }
+  }
+  
+export default News;
